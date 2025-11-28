@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hytale</title>
+<title>Hytale Countdown</title>
 
 <style>
     body {
@@ -14,15 +14,18 @@
         text-align: center;
         background-color: #0a1b3d;
         overflow: hidden;
+        position: relative;
     }
 
     #background {
-        position: absolute;
-        top: 0; left: 0;
-        width: 100%;
-        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
         background-image: url('Hytale.jpg');
         background-size: cover;
+        background-repeat: no-repeat;
         background-position: center;
         opacity: 0.3;
         z-index: -1;
@@ -45,11 +48,9 @@
         box-shadow: 0 0 20px gold;
     }
 
-    #musicControl {
+    #musicControl, #startGame {
         position: fixed;
-        bottom: 60px; /* Above footer */
-        left: 50%;
-        transform: translateX(-50%);
+        bottom: 60px;
         padding: 10px 20px;
         font-size: 1.2rem;
         background-color: gold;
@@ -61,12 +62,43 @@
         z-index: 10;
     }
 
+    #musicControl { left: 50%; transform: translateX(-50%); }
+    #startGame { left: 300px; bottom: 10px; }
+
+    #hoverCounter, #gameTimer {
+        position: fixed;
+        bottom: 10px;
+        font-size: 1.5rem;
+        background-color: rgba(0,0,0,0.5);
+        padding: 10px 15px;
+        border: 2px solid gold;
+        border-radius: 10px;
+        box-shadow: 0 0 10px gold;
+        z-index: 10;
+    }
+
+    #hoverCounter { left: 10px; }
+    #gameTimer { left: 150px; }
+
     footer {
         position: fixed;
         bottom: 10px;
         width: 100%;
         font-size: 1rem;
         opacity: 0.8;
+    }
+
+    .randomImage {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        cursor: pointer;
+        transition: transform 0.2s;
+        z-index: 5;
+    }
+
+    .randomImage:hover {
+        transform: scale(1.5);
     }
 </style>
 </head>
@@ -78,20 +110,23 @@
 <h1>HYTALE</h1>
 <div id="timer">Loading…</div>
 <button id="musicControl">Mute/Unmute Music</button>
+<div id="hoverCounter">Score: 0</div>
+<div id="gameTimer">Time: 60s</div>
+<button id="startGame">Start Game</button>
 
 <footer>Hytale Is Saved</footer>
 
-<!-- Background Music -->
 <audio id="bgMusic" src="HytaleTheme.mp3" loop></audio>
 
 <script>
+// ------------------ Countdown ------------------
 function updateCountdown() {
     const launchDate = new Date("November 28, 2025 10:00:00 EST").getTime();
     const now = Date.now();
     const diff = launchDate - now;
 
     if (diff <= 0) {
-        document.getElementById("timer").innerHTML = "Hytale Is Out!";
+        document.getElementById("timer").innerHTML = "THE GATES ARE OPEN!";
         return;
     }
 
@@ -107,23 +142,97 @@ function updateCountdown() {
 updateCountdown();
 setInterval(updateCountdown, 1000);
 
-// Music Control
+// ------------------ Music ------------------
 const music = document.getElementById('bgMusic');
+music.volume = 0.15;
 let musicStarted = false;
-music.volume = 0.05
 
-document.addEventListener('click', function() {
-    if (!musicStarted) {
+document.addEventListener('click', function(e) {
+    // Do not start music if click is Start Game button
+    if (!musicStarted && e.target.id !== 'startGame') {
         music.play().catch(e => console.log("Music autoplay blocked"));
         musicStarted = true;
     }
 });
 
-// Mute/Unmute button
 const musicButton = document.getElementById('musicControl');
 musicButton.addEventListener('click', () => {
     music.muted = !music.muted;
     musicButton.textContent = music.muted ? "Unmute Music" : "Mute Music";
+});
+
+// ------------------ Game Timer & Hover Targets ------------------
+const hoverCounter = document.getElementById('hoverCounter');
+const gameTimerEl = document.getElementById('gameTimer');
+const startGameBtn = document.getElementById('startGame');
+
+let score = 0;
+let highScore = 0;
+let gameTime = 60;
+let gameInterval = null;
+let images = []; // track current targets
+
+function spawnTargets(numImages = 10) {
+    images = [];
+    for (let i = 0; i < numImages; i++) {
+        const img = document.createElement('img');
+        img.src = 'target.jpg';
+        img.classList.add('randomImage');
+
+        img.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+        img.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+
+        img.addEventListener('mouseenter', () => {
+            score++;
+            hoverCounter.textContent = `Score: ${score}`;
+            img.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+            img.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+        });
+
+        document.body.appendChild(img);
+        images.push(img);
+    }
+}
+
+function despawnTargets() {
+    images.forEach(img => img.remove());
+    images = [];
+}
+
+startGameBtn.addEventListener('click', () => {
+    score = 0;
+    hoverCounter.textContent = `Score: ${score}`;
+    gameTime = 60;
+    gameTimerEl.textContent = `Time: ${gameTime}s`;
+    startGameBtn.disabled = true;
+
+    // Spawn target images
+    spawnTargets(10);
+
+    // Start countdown
+    gameInterval = setInterval(() => {
+        gameTime--;
+        gameTimerEl.textContent = `Time: ${gameTime}s`;
+
+        if (gameTime <= 0) {
+            clearInterval(gameInterval);
+            startGameBtn.disabled = false;
+
+            // Remove all targets
+            despawnTargets();
+
+            if (score > highScore) highScore = score;
+            alert(`Time's up! Your score: ${score}\nHighscore: ${highScore}`);
+        }
+    }, 1000);
+});
+
+// Optional: respawn images if window resizes (during game)
+window.addEventListener('resize', () => {
+    images.forEach(img => {
+        img.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+        img.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+    });
 });
 </script>
 
